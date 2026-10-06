@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_macros.html" import band_chip, owner_cell, when, bar %}
+{% block title %}Posture report{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Posture report</h1>
+    <p class="text-body-secondary mb-0">FleetLine Logistics, non-human identities. Generated {{ generated_at|isodate }} {{ generated_at.strftime("%H:%M") }} UTC with policy {{ policy.version }}.</p>
+  </div>
+  <div class="d-flex gap-2 d-print-none">
+    <button type="button" class="btn btn-primary" data-print>Print or save as PDF</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('dashboard.index') }}">Back to the dashboard</a>
+  </div>
+</div>
+
+<section class="card mb-3">
+  <div class="card-header">Organization summary</div>
+  <div class="card-body">
+    <p class="mb-2">{{ summary.total }} identities in the inventory, {{ summary.scored }} scored ({{ summary.percent(summary.scored) }}%). {{ summary.with_owner }} have an owner recorded ({{ summary.percent(summary.with_owner) }}%); {{ summary.without_clear_owner }} are without a clear owner ({{ summary.percent(summary.without_clear_owner) }}%: no owner, or a departed owner). Average score {% if summary.average is not none %}{{ summary.average }}{% else %}n/a{% endif %} out of 100.</p>
+    <p class="mb-0 text-body-secondary">Warden stores metadata about credentials, never credential values. Scores follow the policy on the policy page; an organization tunes the weights.</p>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Key indicators</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="kpi-table">
+      <thead><tr><th scope="col">Indicator</th><th scope="col" class="text-end">Value</th><th scope="col">Definition</th></tr></thead>
+      <tbody>
+        <tr data-kpi="total"><td>Identities</td><td class="text-end">{{ summary.total }}</td><td>every registered non-human identity</td></tr>
+        <tr data-kpi="scored"><td>Scored</td><td class="text-end">{{ summary.scored }} ({{ summary.percent(summary.scored) }}%)</td><td>identities with a risk assessment</td></tr>
+        <tr data-kpi="with_owner"><td>With an owner recorded</td><td class="text-end">{{ summary.with_owner }} ({{ summary.percent(summary.with_owner) }}%)</td><td>owner not null</td></tr>
+        <tr data-kpi="without_clear_owner"><td>Without a clear owner</td><td class="text-end">{{ summary.without_clear_owner }} ({{ summary.percent(summary.without_clear_owner) }}%)</td><td>no owner, or a departed owner</td></tr>
+        <tr data-kpi="orphans"><td>Orphans</td><td class="text-end">{{ summary.flag("ORPHAN") }}</td><td>flag ORPHAN: no owner recorded</td></tr>
+        <tr data-kpi="critical"><td>Critical</td><td class="text-end">{{ summary.bands["critical"] }}</td><td>score 75 to 100</td></tr>
+        <tr data-kpi="high"><td>High</td><td class="text-end">{{ summary.bands["high"] }}</td><td>score 50 to 74</td></tr>
+        <tr data-kpi="average"><td>Average score</td><td class="text-end">{% if summary.average is not none %}{{ summary.average }}{% else %}n/a{% endif %}</td><td>over the scored identities</td></tr>
+        <tr data-kpi="stale_90"><td>Stale over 90 days</td><td class="text-end">{{ summary.flag("STALE_90") }}</td><td>flag STALE_90: last used over 90 days ago, or never used</td></tr>
+        <tr data-kpi="unrotated_365"><td>Unrotated over 365 days</td><td class="text-end">{{ summary.flag("ROTATION_OVER_365") }}</td><td>flag ROTATION_OVER_365: rotation age over 365 days</td></tr>
+        <tr data-kpi="expiring_30d"><td>Expiring in 30 days</td><td class="text-end">{{ summary.flag("EXPIRES_30D") }}</td><td>flag EXPIRES_30D: expiry within 30 days, not yet expired</td></tr>
+        <tr data-kpi="open_cases"><td>Open offboarding cases</td><td class="text-end">{{ summary.open_cases }}</td><td>cases open or in progress</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Signals</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="signals-table">
+      <thead><tr><th scope="col">Flag</th><th scope="col" class="text-end">Identities</th><th scope="col">Predicate</th></tr></thead>
+      <tbody>
+      {% for flag in policy.flags %}
+        <tr data-flag="{{ flag.code }}" data-count="{{ summary.flag(flag.code) }}"><td><code>{{ flag.code }}</code></td><td class="text-end">{{ summary.flag(flag.code) }}</td><td>{{ flag.predicate }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <section class="card h-100">
+      <div class="card-header">Distribution by band</div>
+      <div class="card-body">
+        {% for band, count in summary.bands.items() %}
+          {{ bar(band|label, count, summary.total, "band-" ~ band) }}
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-8">
+    <section class="card h-100">
+      <div class="card-header">Distribution by type and by system</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <table class="table table-sm mb-0" id="by-type">
+              <thead><tr><th scope="col">Type</th><th scope="col" class="text-end">Identities</th><th scope="col" class="text-end">Average</th></tr></thead>
+              <tbody>{% for row in summary.by_type %}<tr><td>{{ row.label }}</td><td class="text-end">{{ row.count }}</td><td class="text-end">{% if row.average is not none %}{{ row.average }}{% else %}n/a{% endif %}</td></tr>{% endfor %}</tbody>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <table class="table table-sm mb-0" id="by-system">
+              <thead><tr><th scope="col">System</th><th scope="col" class="text-end">Identities</th><th scope="col" class="text-end">Average</th></tr></thead>
+              <tbody>{% for row in summary.by_system %}<tr><td>{{ row.label }}</td><td class="text-end">{{ row.count }}</td><td class="text-end">{% if row.average is not none %}{{ row.average }}{% else %}n/a{% endif %}</td></tr>{% endfor %}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="card mb-3">
+  <div class="card-header">Top {{ top|length }} riskiest identities</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="top-riskiest">
+      <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Owner</th><th scope="col">Risk</th><th scope="col">Flags</th></tr></thead>
+      <tbody>
+      {% for row in top %}
+        {% set nhi = row.nhi %}
+        <tr>
+          <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td>
+          <td>{{ nhi.type|label }}</td>
+          <td>{{ nhi.system.name }}</td>
+          <td>{{ owner_cell(nhi) }}</td>
+          <td>{{ band_chip(nhi) }}</td>
+          <td class="small">{{ row.flags|join(", ") }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-body-secondary">No identities yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Orphans: no owner recorded <span class="badge text-bg-secondary">{{ orphans|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="orphan-list" data-count="{{ orphans|length }}">
+      <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Risk</th><th scope="col">Last used</th></tr></thead>
+      <tbody>
+      {% for row in orphans %}
+        {% set nhi = row.nhi %}
+        <tr><td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td><td>{{ nhi.type|label }}</td><td>{{ nhi.system.name }}</td><td>{{ band_chip(nhi) }}</td><td>{{ when(nhi.last_used_at, now) }}</td></tr>
+      {% else %}
+        <tr><td colspan="5" class="text-body-secondary">No identity carries the ORPHAN flag.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Expiring within 30 days <span class="badge text-bg-secondary">{{ expiring|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="expiring-list" data-count="{{ expiring|length }}">
+      <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Owner</th><th scope="col">Expires</th></tr></thead>
+      <tbody>
+      {% for row in expiring %}
+        {% set nhi = row.nhi %}
+        <tr><td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td><td>{{ nhi.type|label }}</td><td>{{ nhi.system.name }}</td><td>{{ owner_cell(nhi) }}</td><td>{{ nhi.expires_at|isodate }} ({{ nhi.expires_at|ago(now) }})</td></tr>
+      {% else %}
+        <tr><td colspan="5" class="text-body-secondary">No identity carries the EXPIRES_30D flag.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Open offboarding cases <span class="badge text-bg-secondary">{{ cases|length }}</span></div>
+  <div class="card-body">
+    {% if cases %}
+    <ul class="mb-0">{% for case in cases %}<li>Case #{{ case.id }}, {{ case.person.full_name }}: {{ case.status|label }}, opened {{ case.opened_at|isodate }}</li>{% endfor %}</ul>
+    {% else %}
+    <p class="text-body-secondary mb-0">No open offboarding cases.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Policy weights ({{ policy.version }})</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="policy-weights">
+      <thead><tr><th scope="col">Factor</th><th scope="col" class="text-end">Weight</th><th scope="col">Rule</th></tr></thead>
+      <tbody>{% for rule in policy.factors %}<tr><td>{{ rule.label }}</td><td class="text-end">{{ "%.2f"|format(rule.weight_percent / 100) }}</td><td>{{ rule.rule }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary">Bands: {% for floor, band in policy.band_floors %}{{ band|label }} from {{ floor }}{% if not loop.last %}, {% endif %}{% endfor %}. The full policy with its sources is on the <a href="{{ url_for('risk.policy') }}">policy page</a>.</div>
+</section>
+
+<footer class="small text-body-secondary" id="report-footer">
+  Report generated {{ generated_at|isodate }} {{ generated_at.strftime("%H:%M:%S") }} UTC in <span id="elapsed">{{ "%.1f"|format(elapsed_ms) }}</span> ms of server time (the queries and the assembly of these figures).
+  <span id="scores-as-of">{% if summary.last_recompute_at %}Scores as of {{ summary.last_recompute_at|isodate }} {{ summary.last_recompute_at.strftime("%H:%M") }} UTC.{% else %}Scores not yet computed.{% endif %}</span>
+</footer>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import criticality_badge, status_badge, band_chip, owner_cell, when, audit_trail %}
+{% block title %}{{ system.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ system.name }} {{ criticality_badge(system.criticality) }}</h1>
+    <div class="text-body-secondary">{{ system.category|label }}{% if system.description %}. {{ system.description }}{% endif %}</div>
+  </div>
+  {% if current_user.role == "admin" %}
+  <a class="btn btn-outline-primary" href="{{ url_for('systems.edit', system_id=system.id) }}">Edit</a>
+  {% endif %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Aggregate risk</div>
+      <div class="card-body">
+        {% if risk.scored %}
+        <p class="mb-2">Average score <strong>{{ risk.average }}</strong> over {{ risk.scored }} of {{ risk.total }} identities.</p>
+        <ul class="list-unstyled mb-0">
+          {% for band in ["critical", "high", "medium", "low"] %}<li><span class="badge band-{{ band }}">{{ band|label }}</span> {{ risk.bands[band] }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-body-secondary mb-0">Not scored yet: no risk assessment has been computed for the {{ risk.total }} identities on this system.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Scopes <span class="badge text-bg-secondary">{{ system.scopes|length }}</span></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th scope="col">Scope</th><th scope="col">Sensitivity</th><th scope="col" class="text-end">Granted to</th></tr></thead>
+          <tbody>
+          {% for scope in system.scopes %}
+            <tr><td><code>{{ scope.name }}</code></td><td>{{ criticality_badge(scope.sensitivity) }}</td><td class="text-end">{{ scope.nhi_links|length }}</td></tr>
+          {% else %}
+            <tr><td colspan="3" class="text-body-secondary">No scopes defined.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card mt-3">
+  <div class="card-header">Identities on this system <span class="badge text-bg-secondary">{{ nhis|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Owner</th><th scope="col">Status</th><th scope="col">Risk</th><th scope="col">Last used</th></tr></thead>
+      <tbody>
+      {% for nhi in nhis %}
+        <tr>
+          <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td>
+          <td>{{ nhi.type|label }}</td>
+          <td>{{ owner_cell(nhi) }}</td>
+          <td>{{ status_badge(nhi.status) }}</td>
+          <td>{{ band_chip(nhi) }}</td>
+          <td>{{ when(nhi.last_used_at, now) }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-body-secondary">No identities on this system.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ audit_trail(trail, now) }}
+{% endblock %}

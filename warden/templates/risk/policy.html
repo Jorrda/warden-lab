@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Risk policy{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <h1 class="h3 mb-1">Risk policy {{ policy.version }}</h1>
+  <p class="text-body-secondary mb-0">How every score is computed: five factors of 0 to 100, weighted and summed, rounded to the nearest whole number (halves to the even number, as Python's round does), then banded. Read-only in v1: an organization tunes these values; the report presents them as a policy, not a law.</p>
+</div>
+
+<section class="card mb-3">
+  <div class="card-header">Factors and weights</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="factors">
+      <thead><tr><th scope="col">Factor</th><th scope="col" class="text-end">Weight</th><th scope="col">Rule (sub-score 0 to 100)</th><th scope="col">Rationale to cite</th></tr></thead>
+      <tbody>
+      {% for rule in policy.factors %}
+        <tr data-factor="{{ rule.key }}"><td>{{ rule.label }}</td><td class="text-end">{{ "%.2f"|format(rule.weight_percent / 100) }}</td><td>{{ rule.rule }}</td><td>{{ rule.rationale }}</td></tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr><td>Sum of weights</td><td class="text-end">{{ "%.2f"|format(policy.factors|sum(attribute="weight_percent") / 100) }}</td><td colspan="2">Score = round(sum(weight times sub-score)). Ages are whole elapsed days.</td></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Bands</div>
+  <div class="card-body">
+    <ul class="list-unstyled mb-0" id="bands">
+      {% for floor, band in policy.band_floors %}
+      <li><span class="badge band-{{ band }}">{{ band|label }}</span> {% if loop.first %}{{ floor }} to 100{% else %}{{ floor }} to {{ loop.previtem[0] - 1 }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <p class="small text-body-secondary mt-2 mb-0">A revoked or decommissioned identity scores 0 and band Low but keeps its history; its factor table shows what it would score.</p>
+  </div>
+</section>
+
+<section class="card mb-3">
+  <div class="card-header">Flags</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="flags">
+      <thead><tr><th scope="col">Flag</th><th scope="col">Fires when</th><th scope="col">Derived from</th></tr></thead>
+      <tbody>
+      {% for flag in policy.flags %}
+        <tr data-flag="{{ flag.code }}"><td><code>{{ flag.code }}</code></td><td>{{ flag.predicate }}</td><td>{{ policy.factor_label(flag.factor) }} (its rationale above)</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-body-secondary">Flags drive the Attention panel of the dashboard and the flag filter of the inventory. They are the monitoring signals; the offboarding workflow is the response.</div>
+</section>
+{% endblock %}

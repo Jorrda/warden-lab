@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Method not allowed{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <p class="display-4 fw-semibold mb-1">405</p>
+  <h1 class="h4">Method not allowed</h1>
+  <p class="text-body-secondary">This address does not accept that kind of request. Actions that change data are sent through their buttons.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('dashboard.index') }}">Back to home</a>
+</div>
+{% endblock %}

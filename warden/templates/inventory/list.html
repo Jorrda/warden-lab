@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, band_chip, owner_cell, when %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Inventory</h1>
+  <div class="d-flex align-items-center gap-3">
+    <span class="text-body-secondary">{{ count }} of {{ total }} identities</span>
+    {% if current_user.role == "admin" %}<a class="btn btn-outline-primary" href="{{ url_for('inventory.import_nhis') }}">Import CSV</a> <a class="btn btn-primary" href="{{ url_for('inventory.create') }}">Register identity</a>{% endif %}
+  </div>
+</div>
+<form method="get" action="{{ url_for('inventory.list_nhis') }}" class="row g-2 align-items-end mb-3">
+  <div class="col-md-3">
+    <label for="q" class="form-label">Search</label>
+    <input type="search" id="q" name="q" class="form-control" value="{{ query.q }}" placeholder="name or purpose">
+  </div>
+  <div class="col-md-2">
+    <label for="type" class="form-label">Type</label>
+    <select id="type" name="type" class="form-select">
+      <option value="">All</option>
+      {% for value in types %}<option value="{{ value }}" {% if value == query.type %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="system" class="form-label">System</label>
+    <select id="system" name="system" class="form-select">
+      <option value="">All</option>
+      {% for system in systems %}<option value="{{ system.id }}" {% if system.id == query.system_id %}selected{% endif %}>{{ system.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="owner" class="form-label">Owner</label>
+    <select id="owner" name="owner" class="form-select">
+      <option value="">All</option>
+      <option value="none" {% if query.owner == "none" %}selected{% endif %}>No owner</option>
+      <option value="departed" {% if query.owner == "departed" %}selected{% endif %}>Departed owner</option>
+      {% for person in people %}<option value="{{ person.id }}" {% if query.owner == person.id|string %}selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-1">
+    <label for="environment" class="form-label">Env</label>
+    <select id="environment" name="environment" class="form-select">
+      <option value="">All</option>
+      {% for value in environments %}<option value="{{ value }}" {% if value == query.environment %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="privilege" class="form-label">Privilege</label>
+    <select id="privilege" name="privilege" class="form-select">
+      <option value="">All</option>
+      {% for value in privileges %}<option value="{{ value }}" {% if value == query.privilege %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="storage" class="form-label">Storage</label>
+    <select id="storage" name="storage" class="form-select">
+      <option value="">All</option>
+      {% for value in storages %}<option value="{{ value }}" {% if value == query.storage %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="status" class="form-label">Status</label>
+    <select id="status" name="status" class="form-select">
+      <option value="">All</option>
+      {% for value in statuses %}<option value="{{ value }}" {% if value == query.status %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="band" class="form-label">Band</label>
+    <select id="band" name="band" class="form-select">
+      <option value="">All</option>
+      {% for value in bands %}<option value="{{ value }}" {% if value == query.band %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="flag" class="form-label">Flag</label>
+    <select id="flag" name="flag" class="form-select">
+      <option value="">All</option>
+      {% for value in flags %}<option value="{{ value }}" {% if value == query.flag %}selected{% endif %}>{{ value }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="sort" class="form-label">Sort by</label>
+    <select id="sort" name="sort" class="form-select">
+      {% for value in sorts %}<option value="{{ value }}" {% if value == query.sort %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.list_nhis') }}">Clear</a>
+  </div>
+</form>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Owner</th>
+        <th scope="col">Risk</th><th scope="col">Flags</th><th scope="col">Last used</th><th scope="col">Last rotated</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      {% set nhi = row.nhi %}
+      <tr>
+        <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a>{% if nhi.status != "active" %} {{ status_badge(nhi.status) }}{% endif %}</td>
+        <td><span class="badge text-bg-info">{{ nhi.type|label }}</span></td>
+        <td><a href="{{ url_for('systems.detail', system_id=nhi.system.id) }}">{{ nhi.system.name }}</a></td>
+        <td>{{ owner_cell(nhi) }}</td>
+        <td>{{ band_chip(nhi) }}</td>
+        <td class="small">{% for flag in row.flags[:3] %}<span class="badge text-bg-light border">{{ flag }}</span> {% endfor %}{% if row.flags|length > 3 %}<span class="text-body-secondary">+{{ row.flags|length - 3 }}</span>{% endif %}</td>
+        <td>{{ when(nhi.last_used_at, now) }}</td>
+        <td>{{ when(nhi.last_rotated_at, now) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="text-body-secondary">No identities match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

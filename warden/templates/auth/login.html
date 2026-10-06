@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h1 class="h4 card-title mb-3">Log in</h1>
+        <form method="post" action="{{ url_for('auth.login') }}" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.username.label(class_="form-label") }}
+            {{ form.username(class_="form-control", autocomplete="username", autofocus=True) }}
+          </div>
+          <div class="mb-3">
+            {{ form.password.label(class_="form-label") }}
+            {{ form.password(class_="form-control", autocomplete="current-password") }}
+          </div>
+          {{ form.submit(class_="btn btn-primary w-100") }}
+        </form>
+        <p class="small text-body-secondary mt-3 mb-0">Five failed attempts lock an account for ten minutes.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

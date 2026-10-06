@@ -1,0 +1,21 @@
+/* Warden application styles. Bootstrap does the heavy lifting; keep this file small. */
+.navbar-brand .bi { vertical-align: -0.125em; }
+
+/* Risk band colours (CLAUDE.md 5): critical red, high orange, medium yellow, low green. */
+.band-critical { background-color: #dc3545; color: #fff; }
+.band-high { background-color: #fd7e14; color: #fff; }
+.band-medium { background-color: #ffc107; color: #212529; }
+.band-low { background-color: #198754; color: #fff; }
+
+/* S02: a fixed-height box so a responsive chart fills its card without growing it. */
+.chart-box { height: 260px; }
+.kpi-tile .fs-3 a { color: inherit; }
+
+/* S10: the report prints from the browser (spec 6.6, @media print); the navbar and the buttons carry d-print-none. */
+@media print {
+  .card, section, tr { break-inside: avoid; }
+  .container { max-width: none; }                     /* the page, not a 540 pixel column, decides the width */
+  .table-responsive { overflow: visible !important; } /* no scrollbar on paper: a wide table shows every column */
+  a { color: inherit; text-decoration: none; }
+  .badge, .progress-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

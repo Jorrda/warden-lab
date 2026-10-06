@@ -1,0 +1,5 @@
+{
+  "database_url": "postgresql://localhost:5432/fleetline",
+  "pool_size": 5,
+  "log_level": "INFO"
+}

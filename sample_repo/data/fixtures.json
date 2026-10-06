@@ -1,0 +1,10 @@
+{
+  "customers": [
+    {"id": 1, "name": "Negev Agro Ltd."},
+    {"id": 2, "name": "Carmel Textiles"}
+  ],
+  "integration": {
+    "api_key": "c4904afab89208d5fbc3d9ae52009576",
+    "endpoint": "https://crm.fleetline.example/api"
+  }
+}

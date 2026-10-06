@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+{% block title %}People{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">People</h1>
+  <span class="text-body-secondary">{{ count }} {{ "person" if count == 1 else "people" }}</span>
+</div>
+<form method="get" action="{{ url_for('people.list_people') }}" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label for="status" class="form-label">Status</label>
+    <select id="status" name="status" class="form-select">
+      {% for value in status_filters %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Filter</button></div>
+</form>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Department</th><th scope="col">Job title</th><th scope="col">Status</th><th scope="col" class="text-end">Identities</th></tr>
+    </thead>
+    <tbody>
+    {% for person, nhi_count in rows %}
+      <tr>
+        <td><a href="{{ url_for('people.detail', person_id=person.id) }}">{{ person.full_name }}</a></td>
+        <td>{{ person.email }}</td>
+        <td>{{ person.department }}</td>
+        <td>{{ person.job_title }}</td>
+        <td>{{ status_badge(person.status) }}</td>
+        <td class="text-end">{{ nhi_count }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="text-body-secondary">No people match this filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

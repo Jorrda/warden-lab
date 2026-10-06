@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Forbidden{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <p class="display-4 fw-semibold mb-1">403</p>
+  <h1 class="h4">Forbidden</h1>
+  <p class="text-body-secondary">You do not have permission to view this page. If you think you should, ask the IT coordinator.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('dashboard.index') }}">Back to home</a>
+</div>
+{% endblock %}

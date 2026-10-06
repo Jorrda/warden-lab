@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "_macros.html" import band_chip, owner_cell, when, tile %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Posture dashboard</h1>
+    <p class="text-body-secondary mb-0">
+      {% if summary.last_recompute_at %}Last recompute {{ summary.last_recompute_at|ago(now) }} ({{ summary.last_recompute_at|isodate }}).{% else %}No risk assessment has been computed yet.{% endif %}
+      Policy <a href="{{ url_for('risk.policy') }}">{{ summary.policy_version }}</a>.
+    </p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if current_user.role == "admin" %}
+    <form method="post" action="{{ url_for('risk.recompute') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-primary">Recompute now</button>
+    </form>
+    {% endif %}
+    <a class="btn btn-primary" href="{{ url_for('risk.report') }}">Generate posture report</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {{ tile("total", "Identities", summary.total, summary.scored ~ " scored (" ~ summary.percent(summary.scored) ~ "%)", url_for('inventory.list_nhis')) }}
+  {{ tile("with_owner", "With an owner recorded", summary.percent(summary.with_owner) ~ "%", summary.with_owner ~ " of " ~ summary.total) }}
+  {{ tile("without_clear_owner", "Without a clear owner", summary.percent(summary.without_clear_owner) ~ "%", summary.without_clear_owner ~ " of " ~ summary.total ~ " (no owner or a departed owner)") }}
+  {{ tile("orphans", "Orphans", summary.flag("ORPHAN"), "no owner recorded", url_for('inventory.list_nhis', flag='ORPHAN')) }}
+  {{ tile("critical", "Critical", summary.bands["critical"], "score 75 to 100", url_for('inventory.list_nhis', band='critical'), "critical") }}
+  {{ tile("high", "High", summary.bands["high"], "score 50 to 74", url_for('inventory.list_nhis', band='high'), "high") }}
+  {{ tile("average", "Average score", summary.average if summary.average is not none else "n/a", "over " ~ summary.scored ~ " scored") }}
+  {{ tile("stale_90", "Stale over 90 days", summary.flag("STALE_90"), "or never used", url_for('inventory.list_nhis', flag='STALE_90')) }}
+  {{ tile("unrotated_365", "Unrotated over 365 days", summary.flag("ROTATION_OVER_365"), "since the last rotation or creation", url_for('inventory.list_nhis', flag='ROTATION_OVER_365')) }}
+  {{ tile("expiring_30d", "Expiring in 30 days", summary.flag("EXPIRES_30D"), "not yet expired", url_for('inventory.list_nhis', flag='EXPIRES_30D')) }}
+  {{ tile("open_cases", "Open offboarding cases", summary.open_cases, "open or in progress", url_for('offboarding.list_cases', status='not_closed')) }}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">By band</div>
+      <div class="card-body chart-box">
+        <canvas id="chart-band" role="img" aria-label="Identities by band: {% for band, count in summary.bands.items() %}{{ band|label }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          {% for band, count in summary.bands.items() %}{{ band|label }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">By type</div>
+      <div class="card-body chart-box">
+        <canvas id="chart-type" role="img" aria-label="Identities by type: {% for row in summary.by_type %}{{ row.label }} {{ row.count }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          {% for row in summary.by_type %}{{ row.label }} {{ row.count }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">By system</div>
+      <div class="card-body chart-box">
+        <canvas id="chart-system" role="img" aria-label="Identities by system: {% for row in summary.by_system %}{{ row.label }} {{ row.count }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          {% for row in summary.by_system %}{{ row.label }} {{ row.count }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="chart-data">{{ chart_data|tojson }}</script>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">Top 10 riskiest identities</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" id="top-riskiest">
+          <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Owner</th><th scope="col">Risk</th><th scope="col">Flags</th></tr></thead>
+          <tbody>
+          {% for row in top %}
+            {% set nhi = row.nhi %}
+            <tr>
+              <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td>
+              <td>{{ nhi.type|label }}</td>
+              <td>{{ nhi.system.name }}</td>
+              <td>{{ owner_cell(nhi) }}</td>
+              <td>{{ band_chip(nhi) }}</td>
+              <td class="small">{% for flag in row.flags[:3] %}<span class="badge text-bg-light border">{{ flag }}</span> {% endfor %}{% if row.flags|length > 3 %}<span class="text-body-secondary">+{{ row.flags|length - 3 }}</span>{% endif %}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="text-body-secondary">No identities yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Attention</div>
+      <ul class="list-group list-group-flush" id="attention">
+        {% for flag in flags %}
+        <li class="list-group-item d-flex justify-content-between align-items-center" data-flag="{{ flag.code }}" data-count="{{ summary.flag(flag.code) }}">
+          <span><a href="{{ url_for('inventory.list_nhis', flag=flag.code) }}"><code>{{ flag.code }}</code></a><br><small class="text-body-secondary">{{ flag.predicate }}</small></span>
+          <span class="badge {% if summary.flag(flag.code) %}text-bg-warning{% else %}text-bg-light border{% endif %} rounded-pill">{{ summary.flag(flag.code) }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">Recent audit events</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="recent-events">
+      <thead><tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">Actor</th><th scope="col">Entity</th></tr></thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td title="{{ event.created_at.isoformat() }}">{{ event.created_at|isodate }} <span class="text-body-secondary">({{ event.created_at|ago(now) }})</span></td>
+          <td><code>{{ event.action }}</code></td>
+          <td>{% if event.actor %}{{ event.actor.username }}{% else %}<span class="text-body-secondary">system</span>{% endif %}</td>
+          <td>{{ event.entity_type }}{% if event.entity_id %} {{ event.entity_id }}{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="text-body-secondary">No audit rows yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

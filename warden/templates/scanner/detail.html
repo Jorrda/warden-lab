@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_macros.html" import audit_trail %}
+{% block title %}Scan run #{{ run.id }}{% endblock %}
+{% macro status_chip(status) -%}
+{% if status == "new" %}<span class="badge text-bg-primary">New</span>
+{% elif status == "confirmed" %}<span class="badge text-bg-warning">Confirmed</span>
+{% elif status == "linked" %}<span class="badge text-bg-success">Linked</span>
+{% else %}<span class="badge text-bg-secondary">False positive</span>{% endif %}
+{%- endmacro %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">Scan run #{{ run.id }}</h1>
+    <div class="text-body-secondary">Target <code>{{ run.target_path }}</code>, started by {{ run.starter.username }} on {{ run.started_at|isodate }} ({{ run.started_at|ago(now) }}), {{ ((run.finished_at - run.started_at).total_seconds() * 1000)|round|int }} ms.</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('scanner.list_runs') }}">All runs</a>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Summary</div>
+      <div class="card-body">
+        <dl class="row mb-0" id="run-summary" data-files="{{ run.files_scanned }}" data-findings="{{ run.findings_count }}" data-recall="{{ run.recall if run.recall is not none else '' }}" data-precision="{{ run.precision if run.precision is not none else '' }}">
+          <dt class="col-7">Files scanned</dt><dd class="col-5">{{ run.files_scanned }}</dd>
+          <dt class="col-7">Findings</dt><dd class="col-5">{{ run.findings_count }}</dd>
+          {% if run.recall is not none %}
+          <dt class="col-7">Detected</dt><dd class="col-5">{{ run.true_positives }} of {{ run.true_positives + run.missed }}</dd>
+          <dt class="col-7">Missed</dt><dd class="col-5">{{ run.missed }}</dd>
+          <dt class="col-7">False positives</dt><dd class="col-5">{{ run.false_positives }}</dd>
+          <dt class="col-7">Recall</dt><dd class="col-5">{{ percent(run.recall) }}</dd>
+          <dt class="col-7">Precision</dt><dd class="col-5">{{ percent(run.precision) }}</dd>
+          {% else %}
+          <dt class="col-7">Ground truth</dt><dd class="col-5"><span class="text-body-secondary">none in the target</span></dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">Ground truth comparison</div>
+      {% if comparison %}
+      <div class="card-body" id="ground-truth" data-detected="{{ comparison.true_positives }}" data-missed="{{ comparison.missed|length }}" data-false-positives="{{ comparison.false_positives|length }}">
+        <div class="row">
+          <div class="col-md-4">
+            <h2 class="h6">Detected <span class="badge text-bg-success">{{ comparison.true_positives }}</span></h2>
+            <ul class="list-unstyled small mb-0">
+              {% for entry, types in comparison.detected %}
+              <li><code>{{ entry.file }}:{{ entry.line }}</code> {{ entry.secret_type }}{% if entry.secret_type not in types %} <span class="badge text-bg-warning" title="found as {{ types|join(', ') }}">type differs</span>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h2 class="h6">Missed <span class="badge text-bg-danger">{{ comparison.missed|length }}</span></h2>
+            <ul class="list-unstyled small mb-0">
+              {% for entry in comparison.missed %}<li><code>{{ entry.file }}:{{ entry.line }}</code> {{ entry.secret_type }}</li>{% else %}<li class="text-body-secondary">none</li>{% endfor %}
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h2 class="h6">False positives <span class="badge text-bg-warning">{{ comparison.false_positives|length }}</span></h2>
+            <ul class="list-unstyled small mb-0">
+              {% for finding in comparison.false_positives %}<li><code>{{ finding.file_path }}:{{ finding.line_no }}</code> {{ finding.secret_type }}</li>{% else %}<li class="text-body-secondary">none</li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="card-body text-body-secondary">The target holds no <code>ground_truth.json</code>, so recall and precision cannot be computed for this run.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center"><span>Findings</span> <span class="badge text-bg-secondary">{{ findings|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0" id="findings">
+      <thead><tr><th scope="col">File</th><th scope="col" class="text-end">Line</th><th scope="col">Type</th><th scope="col">Preview</th><th scope="col" class="text-end">Entropy</th><th scope="col">Status</th><th scope="col">Identity</th>{% if current_user.role == "admin" %}<th scope="col">Triage</th>{% endif %}</tr></thead>
+      <tbody>
+      {% for finding in findings %}
+        {% set suggestion = suggestions.get(finding.id) %}
+        <tr id="finding-{{ finding.id }}" data-finding="{{ finding.id }}" data-status="{{ finding.status }}" data-type="{{ finding.secret_type }}" data-suggestion="{{ suggestion.id if suggestion else '' }}">
+          <td><code>{{ finding.file_path }}</code></td>
+          <td class="text-end">{{ finding.line_no }}</td>
+          <td>{{ finding.secret_type }}</td>
+          <td><code>{{ finding.masked_preview }}</code></td>
+          <td class="text-end">{% if finding.entropy is not none %}{{ "%.2f"|format(finding.entropy) }}{% endif %}</td>
+          <td>{{ status_chip(finding.status) }}</td>
+          <td>
+            {% if finding.nhi %}<a href="{{ url_for('inventory.detail', nhi_id=finding.nhi.id) }}">{{ finding.nhi.name }}</a>
+            {% elif suggestion %}<span class="text-body-secondary">fingerprint matches <a href="{{ url_for('inventory.detail', nhi_id=suggestion.id) }}">{{ suggestion.name }}</a></span>
+            {% else %}<span class="text-body-secondary">none</span>{% endif %}
+          </td>
+          {% if current_user.role == "admin" %}
+          <td>
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+              {% if finding.status != "confirmed" %}
+              <form method="post" action="{{ url_for('scanner.confirm', run_id=run.id, finding_id=finding.id) }}" class="d-inline"{% if finding.status == "linked" %} data-confirm="Unlink finding #{{ finding.id }} from {{ finding.nhi.name }} and keep it confirmed?"{% endif %}>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-warning btn-sm">{% if finding.status == "linked" %}Unlink{% else %}Confirm{% endif %}</button>
+              </form>
+              {% endif %}
+              {% if finding.status != "false_positive" %}
+              <form method="post" action="{{ url_for('scanner.false_positive', run_id=run.id, finding_id=finding.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">False positive</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('scanner.link', run_id=run.id, finding_id=finding.id) }}" class="d-inline-flex gap-1 link-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="nhi_id" class="form-select form-select-sm" aria-label="Identity to link">
+                  {% for nhi in nhis %}<option value="{{ nhi.id }}"{% if suggestion and nhi.id == suggestion.id %} selected{% endif %}>{{ nhi.name }}{% if suggestion and nhi.id == suggestion.id %} (fingerprint match){% endif %}</option>{% endfor %}
+                </select>
+                <button type="submit" class="btn btn-outline-success btn-sm">{% if finding.status == "linked" %}Relink{% else %}Link{% endif %}</button>
+              </form>
+              {% if finding.status != "linked" %}
+              <a class="btn btn-outline-primary btn-sm" href="{{ url_for('inventory.create', finding=finding.id) }}">Create NHI</a>
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+      {% else %}
+        <tr><td colspan="{% if current_user.role == 'admin' %}8{% else %}7{% endif %}" class="text-body-secondary">No finding in this run.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ audit_trail(trail, now) }}
+{% endblock %}

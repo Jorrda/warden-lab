@@ -1,0 +1,6 @@
+{{ person.full_name }} marked departed. {{ phrase }} a departed owner.
+<form method="post" action="{{ url_for('offboarding.open_case') }}" class="d-inline ms-2">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="person_id" value="{{ person.id }}">
+  <button type="submit" class="btn btn-sm btn-outline-dark">Open an offboarding case?</button>
+</form>

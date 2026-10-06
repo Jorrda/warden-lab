@@ -1,0 +1,91 @@
+{# Shared rendering macros: form fields, badges, the band chip, the audit trail, the dashboard tile and the report bar. #}
+
+{% macro field(f, css="form-control") -%}
+<div class="mb-3">
+  {{ f.label(class_="form-label") }}
+  {{ f(class_=css ~ (" is-invalid" if f.errors else ""), **kwargs) }}
+  {% for error in f.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{% if status == "active" %}<span class="badge text-bg-success">Active</span>
+{% elif status == "departed" %}<span class="badge text-bg-secondary">Departed</span>
+{% elif status == "revoked" %}<span class="badge text-bg-danger">Revoked</span>
+{% elif status == "decommissioned" %}<span class="badge text-bg-dark">Decommissioned</span>
+{% elif status == "open" %}<span class="badge text-bg-primary">Open</span>
+{% elif status == "in_progress" %}<span class="badge text-bg-info">In progress</span>
+{% elif status == "closed" %}<span class="badge text-bg-secondary">Closed</span>
+{% else %}<span class="badge text-bg-light border">{{ status|label }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro criticality_badge(value) -%}
+{% if value == "high" %}<span class="badge text-bg-danger">High</span>
+{% elif value == "medium" %}<span class="badge text-bg-warning">Medium</span>
+{% else %}<span class="badge text-bg-success">Low</span>{% endif %}
+{%- endmacro %}
+
+{% macro band_chip(nhi) -%}
+{% if nhi.current_band %}<span class="badge band-{{ nhi.current_band }}">{{ nhi.current_band|label }} {{ nhi.current_score }}</span>
+{% else %}<span class="badge text-bg-light border text-body-secondary">Not scored</span>{% endif %}
+{%- endmacro %}
+
+{% macro owner_cell(nhi) -%}
+{% if nhi.owner %}<a href="{{ url_for('people.detail', person_id=nhi.owner.id) }}">{{ nhi.owner.full_name }}</a>{% if nhi.owner.status == "departed" %} <span class="badge text-bg-secondary">departed</span>{% endif %}
+{% else %}<span class="text-danger fw-semibold">none</span>{% endif %}
+{%- endmacro %}
+
+{% macro when(value, now) -%}
+{% if value %}<span title="{{ value.isoformat() }}">{{ value|ago(now) }}</span>{% else %}<span class="text-body-secondary">never</span>{% endif %}
+{%- endmacro %}
+
+{% macro tile(key, title, value, note, href=None, band=None) -%}
+<div class="col-6 col-md-4 col-xl-2">
+  <div class="card h-100 kpi-tile" data-tile="{{ key }}" data-value="{{ value }}">
+    <div class="card-body py-2 px-3">
+      <div class="small text-body-secondary">{{ title }}</div>
+      <div class="fs-3 fw-semibold">{% if href %}<a class="text-decoration-none" href="{{ href }}">{% endif %}{% if band %}<span class="badge band-{{ band }} fs-5 align-middle">{{ value }}</span>{% else %}{{ value }}{% endif %}{% if href %}</a>{% endif %}</div>
+      <div class="small text-body-secondary">{{ note }}</div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro bar(label, count, total, css) -%}
+{% set percent = (100 * count / total)|round|int if total else 0 %}
+<div class="d-flex justify-content-between small"><span>{{ label }}</span><span>{{ count }} ({{ percent }}%)</span></div>
+<div class="progress mb-2" role="progressbar" aria-label="{{ label }}" aria-valuenow="{{ count }}" aria-valuemin="0" aria-valuemax="{{ total }}">
+  <div class="progress-bar {{ css }}" style="width: {{ percent }}%"></div>
+</div>
+{%- endmacro %}
+
+{% macro audit_trail(trail, now) -%}
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Audit trail</span>
+    <span class="badge text-bg-secondary">{{ trail|length }}</span>
+  </div>
+  {% if trail %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">Actor</th><th scope="col">Changes</th></tr></thead>
+      <tbody>
+      {% for event in trail %}
+        <tr>
+          <td title="{{ event.created_at.isoformat() }}">{{ event.created_at|isodate }} <span class="text-body-secondary">({{ event.created_at|ago(now) }})</span></td>
+          <td><code>{{ event.action }}</code></td>
+          <td>{% if event.actor %}{{ event.actor.username }}{% else %}<span class="text-body-secondary">system</span>{% endif %}</td>
+          <td class="small">
+            {% if event.before and event.after %}{{ event.changed_fields()|join(", ") or "no field changed" }}
+            {% elif event.after and not event.before %}{{ "created" if event.action.endswith(".create") or event.action == "seed.load" else "" }}{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">No audit rows yet.</div>
+  {% endif %}
+</div>
+{%- endmacro %}

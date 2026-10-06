@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% macro value(v) -%}
+{% if v is none %}<span class="text-body-secondary">null</span>{% elif v is string %}{{ v }}{% elif v is boolean %}{{ "true" if v else "false" }}{% elif v is number %}{{ v }}{% else %}<code>{{ v|tojson }}</code>{% endif %}
+{%- endmacro %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Audit log</h1>
+  <span class="text-body-secondary" id="log-count" data-total="{{ page.total }}" data-page="{{ page.page }}" data-pages="{{ page.pages }}">{{ page.total }} {{ "event" if page.total == 1 else "events" }}{% if page.total %}, showing {{ page.first }} to {{ page.last }}{% endif %}</span>
+</div>
+<form method="get" action="{{ url_for('audit.log') }}" class="row g-2 align-items-end mb-3" id="log-filters">
+  <div class="col-md-2">
+    <label for="actor" class="form-label">Actor</label>
+    <select id="actor" name="actor" class="form-select">
+      <option value="">All</option>
+      <option value="{{ actor_system }}" {% if query.actor == actor_system %}selected{% endif %}>System</option>
+      {% for user in actors %}<option value="{{ user.id }}" {% if query.actor == user.id|string %}selected{% endif %}>{{ user.username }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="action" class="form-label">Action</label>
+    <select id="action" name="action" class="form-select">
+      <option value="">All</option>
+      {% for code in actions %}<option value="{{ code }}" {% if code == query.action %}selected{% endif %}>{{ code }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="entity_type" class="form-label">Entity type</label>
+    <select id="entity_type" name="entity_type" class="form-select">
+      <option value="">All</option>
+      {% for name in entity_types %}<option value="{{ name }}" {% if name == query.entity_type %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label for="date_from" class="form-label">From (UTC)</label>
+    <input type="date" id="date_from" name="date_from" class="form-control" value="{{ filters.get('date_from', '') }}">
+  </div>
+  <div class="col-md-2">
+    <label for="date_to" class="form-label">To (UTC)</label>
+    <input type="date" id="date_to" name="date_to" class="form-control" value="{{ filters.get('date_to', '') }}">
+  </div>
+  <div class="col-md-1 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary">Filter</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('audit.log') }}">Clear</a>
+  </div>
+</form>
+<div class="table-responsive">
+  <table class="table table-sm align-middle" id="log">
+    <thead><tr><th scope="col">When (UTC)</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Address</th><th scope="col">Changes</th></tr></thead>
+    <tbody>
+    {% for event in page.rows %}
+      {% set rows = rows_of(event) %}
+      {% set changed = rows|selectattr(3)|list|length %}
+      <tr data-event="{{ event.id }}" data-action="{{ event.action }}">
+        <td class="text-nowrap" title="{{ event.created_at.isoformat() }}">{{ event.created_at|isodate }} {{ event.created_at.strftime("%H:%M:%S") }}</td>
+        <td>{% if event.actor %}{{ event.actor.username }}{% else %}<span class="text-body-secondary">system</span>{% endif %}</td>
+        <td><code>{{ event.action }}</code></td>
+        <td>{% set href = entity_url(event) %}{% if href %}<a href="{{ href }}">{{ event.entity_type }}{% if event.entity_id %} {{ event.entity_id }}{% endif %}</a>{% else %}{{ event.entity_type }}{% if event.entity_id %} {{ event.entity_id }}{% endif %}{% endif %}</td>
+        <td class="small">{{ event.ip or "" }}</td>
+        <td class="small">
+          {% if rows %}
+          <details>
+            <summary>{% if event.before and event.after %}{{ changed }} {{ "field" if changed == 1 else "fields" }} changed{% elif event.after %}{{ rows|length }} {{ "value" if rows|length == 1 else "values" }}{% else %}before only{% endif %}</summary>
+            {% if event.user_agent %}<div class="text-body-secondary mt-1">Agent: {{ event.user_agent }}</div>{% endif %}
+            <table class="table table-sm table-borderless mb-0 mt-1 diff">
+              <thead><tr><th scope="col">Field</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+              <tbody>
+              {% for key, before, after, differs in rows %}
+                <tr{% if differs %} class="table-warning"{% endif %}><td><code>{{ key }}</code></td><td>{{ value(before) }}</td><td>{{ value(after) }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </details>
+          {% else %}<span class="text-body-secondary">no payload</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="text-body-secondary">No audit rows match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page.pages > 1 %}
+<nav aria-label="Pages" class="d-flex align-items-center gap-3">
+  {% if page.page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('audit.log', page=page.page - 1, **filters) }}">Newer</a>{% endif %}
+  <span class="text-body-secondary">Page {{ page.page }} of {{ page.pages }}</span>
+  {% if page.page < page.pages %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('audit.log', page=page.page + 1, **filters) }}">Older</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

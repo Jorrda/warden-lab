@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}{% if nhi %}Edit {{ nhi.name }}{% else %}Register identity{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h1 class="h3 mb-1">{% if nhi %}Edit identity{% else %}Register identity{% endif %}</h1>
+    <p class="text-body-secondary">Warden stores metadata about credentials, never credential values. There is no field for the secret itself.</p>
+    {% if finding %}
+    <div class="alert alert-info" id="finding-note">Created from scan run <a href="{{ url_for('scanner.detail', run_id=finding.scan_run_id) }}">#{{ finding.scan_run_id }}</a>, finding #{{ finding.id }} (<code>{{ finding.file_path }}</code> line {{ finding.line_no }}, {{ finding.secret_type }}). The type and system below are guesses from the secret type; fill in the rest. The identity gets the finding's fingerprint and the finding is linked on save.</div>
+    {% endif %}
+    <form method="post" action="{% if nhi %}{{ url_for('inventory.edit', nhi_id=nhi.id) }}{% else %}{{ url_for('inventory.create') }}{% endif %}" novalidate id="nhi-form">
+      {{ form.hidden_tag() }}
+      <div class="row">
+        <div class="col-md-6">{{ field(form.name) }}</div>
+        <div class="col-md-6">{{ field(form.type, css="form-select") }}</div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{{ field(form.system_id, css="form-select") }}</div>
+        <div class="col-md-6">{{ field(form.owner_id, css="form-select") }}</div>
+      </div>
+      {{ field(form.purpose, rows=2) }}
+      <div class="row">
+        <div class="col-md-4">{{ field(form.environment, css="form-select") }}</div>
+        <div class="col-md-4">{{ field(form.privilege_level, css="form-select") }}</div>
+        <div class="col-md-4">{{ field(form.storage_location, css="form-select") }}</div>
+      </div>
+      <div class="row">
+        <div class="col-md-3">{{ field(form.created_at) }}</div>
+        <div class="col-md-3">{{ field(form.last_used_at) }}</div>
+        <div class="col-md-3">{{ field(form.last_rotated_at) }}</div>
+        <div class="col-md-3">{{ field(form.expires_at) }}</div>
+      </div>
+      {% if nhi %}
+      <p class="form-text">Scopes are shown on the identity page and are not edited here.</p>
+      {% endif %}
+      <fieldset class="mb-3">
+        <legend class="h6">Type-specific attributes</legend>
+        {% for nhi_type, keys in schema.items() %}
+        <div class="attribute-group" data-type="{{ nhi_type.value }}">
+          <div class="row">
+            {% for key in keys %}<div class="col-md-6">{{ field(form[key]) }}</div>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+        {{ field(form.created_by_email) }}
+      </fieldset>
+      <div class="d-flex gap-2">
+        {{ form.submit(class_="btn btn-primary") }}
+        <a class="btn btn-outline-secondary" href="{% if nhi %}{{ url_for('inventory.detail', nhi_id=nhi.id) }}{% else %}{{ url_for('inventory.list_nhis') }}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

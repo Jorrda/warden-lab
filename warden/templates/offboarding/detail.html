@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, band_chip, owner_cell, when, bar, audit_trail %}
+{% set open = case.status != "closed" %}
+{% set editable = open and current_user.role == "admin" %}
+{% block title %}Offboarding case #{{ case.id }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Offboarding case #{{ case.id }} {{ status_badge(case.status) }}</h1>
+    <div class="text-body-secondary">
+      Opened {{ case.opened_at|isodate }} ({{ case.opened_at|ago(now) }}){% if case.opened_by_user %} by {{ case.opened_by_user.username }}{% endif %}.
+      {% if case.closed_at %}Closed {{ case.closed_at|isodate }} ({{ case.closed_at|ago(now) }}){% if case.closed_by_user %} by {{ case.closed_by_user.username }}{% endif %}.{% endif %}
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if editable %}
+    <form method="post" action="{{ url_for('offboarding.close', case_id=case.id) }}" data-confirm="Close case #{{ case.id }}? Its decisions become final.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary" id="close-case"{% if pending %} disabled title="{{ pending }} pending"{% endif %}>Close case{% if pending %} ({{ pending }} pending){% endif %}</button>
+    </form>
+    {% endif %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('offboarding.list_cases') }}">All cases</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Leaver</div>
+      <div class="card-body">
+        <p class="mb-1 fs-5"><a href="{{ url_for('people.detail', person_id=case.person.id) }}">{{ case.person.full_name }}</a> {{ status_badge(case.person.status) }}</p>
+        <p class="mb-1 text-body-secondary">{{ case.person.job_title }}, {{ case.person.department }}</p>
+        <dl class="row mb-0">
+          <dt class="col-5">Email</dt><dd class="col-7">{{ case.person.email }}</dd>
+          <dt class="col-5">Departed</dt><dd class="col-7">{{ when(case.person.departed_at, now) }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Progress</div>
+      <div class="card-body">
+        {{ bar("Decided", decided, rows|length, "bg-success") }}
+        <p class="mb-0" id="progress-line" data-decided="{{ decided }}" data-pending="{{ pending }}" data-items="{{ rows|length }}">{{ decided }} of {{ rows|length }} decided, {{ pending }} pending.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Score delta</div>
+      <div class="card-body">
+        <p class="mb-1 fs-5" id="score-delta" data-before="{{ delta.before_total }}" data-after="{{ delta.after_total }}" data-delta="{{ delta.delta }}" data-counted="{{ delta.counted }}">
+          {{ delta.before_total }} at open, {{ delta.after_total }} {% if open %}now{% else %}at close{% endif %} ({{ "%+d"|format(delta.delta) }})
+        </p>
+        <p class="mb-0 small text-body-secondary">Sum of the {{ delta.counted }} scored {{ "identity" if delta.counted == 1 else "identities" }}: the latest assessment before the case opened against the latest one{% if open %} now{% else %} at close{% endif %}.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Checklist <span class="badge text-bg-secondary">{{ rows|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0" id="checklist">
+      <thead><tr><th scope="col">Identity</th><th scope="col">Listed because</th><th scope="col">Owner</th><th scope="col">Risk</th><th scope="col" class="text-end text-nowrap">At open</th><th scope="col" class="text-end text-nowrap">{% if open %}Now{% else %}At close{% endif %}</th><th scope="col">Decision</th><th scope="col">Decided</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        {% set item = row.item %}
+        {% set nhi = item.nhi %}
+        <tr data-item="{{ item.id }}" data-nhi="{{ nhi.name }}" data-decision="{{ item.decision }}" data-reason="{{ reasons[item.id].split(' ')[0] }}">
+          <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a>{% if nhi.status != "active" %} {{ status_badge(nhi.status) }}{% endif %}<br><small class="text-body-secondary">{{ nhi.type|label }} on {{ nhi.system.name }}</small></td>
+          <td class="small">{{ reasons[item.id] }}</td>
+          <td>{{ owner_cell(nhi) }}</td>
+          <td>{{ band_chip(nhi) }}</td>
+          <td class="text-end">{% if row.before is not none %}{{ row.before }}{% else %}<span class="text-body-secondary">n/a</span>{% endif %}</td>
+          <td class="text-end">{% if row.after is not none %}{{ row.after }}{% else %}<span class="text-body-secondary">n/a</span>{% endif %}{% if row.delta is not none and row.delta != 0 %} <small class="text-body-secondary">({{ "%+d"|format(row.delta) }})</small>{% endif %}</td>
+          <td>
+            {% if editable and item.decision != "revoke" %}
+            <form method="post" action="{{ url_for('offboarding.decide', case_id=case.id, item_id=item.id) }}" class="decision-form d-flex flex-column gap-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="decision" class="form-select form-select-sm" aria-label="Decision for {{ nhi.name }}">
+                {% if item.decision == "pending" %}<option value="" selected>Choose</option>{% endif %}
+                {% for decision in decisions %}{% if nhi.status == "active" or decision == "keep" or decision == item.decision %}<option value="{{ decision }}" {% if decision == item.decision %}selected{% endif %}>{{ decision|label }}</option>{% endif %}{% endfor %}
+              </select>
+              <select name="new_owner_id" class="form-select form-select-sm new-owner" aria-label="New owner for {{ nhi.name }}" {% if item.decision != "transfer" %}hidden{% endif %}>
+                <option value="0">Choose a person</option>
+                {% for person in people if person.id != case.person.id %}<option value="{{ person.id }}" {% if person.id == item.new_owner_id %}selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
+              </select>
+              <input type="text" name="justification" class="form-control form-control-sm" maxlength="2000" placeholder="Justification (required for keep)" aria-label="Justification for {{ nhi.name }}" value="{{ item.justification or '' }}">
+              <button type="submit" class="btn btn-sm btn-outline-primary align-self-start">Save</button>
+            </form>
+            {% else %}
+            {% if item.decision == "pending" %}<span class="badge text-bg-light border">Pending</span>
+            {% else %}<span class="badge text-bg-dark">{{ item.decision|label }}</span>{% if item.decision == "transfer" and item.new_owner %} to <a href="{{ url_for('people.detail', person_id=item.new_owner.id) }}">{{ item.new_owner.full_name }}</a>{% endif %}
+            {% if item.justification %}<br><small class="text-body-secondary">{{ item.justification }}</small>{% endif %}{% endif %}
+            {% endif %}
+          </td>
+          <td class="small">{% if item.decided_at %}{{ item.decided_at|isodate }}{% if item.decided_by_user %} by {{ item.decided_by_user.username }}{% endif %}{% else %}<span class="text-body-secondary">not yet</span>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-body-secondary">The leaver owns no identity and created none; the case can be closed.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if editable %}
+  <div class="card-footer small text-body-secondary">Rotate records a rotation now and leaves the owner as recorded; transfer names an active person as the new owner; revoke is final; keep needs a justification. Every saved decision rescores the identity and writes to the audit log.</div>
+  {% endif %}
+</div>
+{{ audit_trail(trail, now) }}
+{% endblock %}

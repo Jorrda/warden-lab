@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, field %}
+{% block title %}Offboarding cases{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Offboarding cases</h1>
+  <span class="text-body-secondary">{{ count }} {{ "case" if count == 1 else "cases" }}</span>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <form method="get" action="{{ url_for('offboarding.list_cases') }}" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label for="status" class="form-label">Status</label>
+        <select id="status" name="status" class="form-select">
+          {% for value in status_filters %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Filter</button></div>
+    </form>
+  </div>
+  {% if current_user.role == "admin" %}
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Open a case</div>
+      <div class="card-body">
+        {% if form.person_id.choices %}
+        <form method="post" action="{{ url_for('offboarding.open_case') }}" novalidate id="open-case-form">
+          {{ form.hidden_tag() }}
+          {{ field(form.person_id, css="form-select") }}
+          {{ form.submit(class_="btn btn-primary") }}
+        </form>
+        {% else %}
+        <p class="text-body-secondary mb-0">Every departed person has an open case or none is departed. Mark a person departed on their page first.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+<div class="table-responsive">
+  <table class="table table-hover align-middle" id="case-list">
+    <thead>
+      <tr><th scope="col">Case</th><th scope="col">Leaver</th><th scope="col">Status</th><th scope="col">Opened</th><th scope="col" class="text-end">Identities</th><th scope="col" class="text-end">Pending</th><th scope="col" class="text-end">Decided</th><th scope="col">Closed</th></tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      {% set case = row.case %}
+      <tr data-case="{{ case.id }}" data-status="{{ case.status }}" data-pending="{{ row.pending }}">
+        <td><a href="{{ url_for('offboarding.detail', case_id=case.id) }}">#{{ case.id }}</a></td>
+        <td><a href="{{ url_for('people.detail', person_id=case.person.id) }}">{{ case.person.full_name }}</a> <span class="text-body-secondary small">{{ case.person.department }}</span></td>
+        <td>{{ status_badge(case.status) }}</td>
+        <td><span title="{{ case.opened_at.isoformat() }}">{{ case.opened_at|isodate }}</span> <span class="text-body-secondary">({{ case.opened_at|ago(now) }})</span></td>
+        <td class="text-end">{{ row.items }}</td>
+        <td class="text-end">{{ row.pending }}</td>
+        <td class="text-end">{{ row.decided }}</td>
+        <td>{% if case.closed_at %}{{ case.closed_at|isodate }}{% else %}<span class="text-body-secondary">open</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="text-body-secondary">No offboarding cases match this filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

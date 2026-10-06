@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, band_chip, when, audit_trail %}
+{% block title %}{{ person.full_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ person.full_name }} {{ status_badge(person.status) }}</h1>
+    <div class="text-body-secondary">{{ person.job_title }}, {{ person.department }}</div>
+  </div>
+  {% if current_user.role == "admin" %}
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{{ url_for('people.edit', person_id=person.id) }}">Edit</a>
+    {% if person.status == "active" %}
+    <form method="post" action="{{ url_for('people.mark_departed', person_id=person.id) }}" data-confirm="Mark {{ person.full_name }} as departed? Every identity they own will need a review.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-warning">Mark departed</button>
+    </form>
+    {% else %}
+    {% if open_case %}
+    <a class="btn btn-outline-dark" href="{{ url_for('offboarding.detail', case_id=open_case.id) }}">View offboarding case #{{ open_case.id }}</a>
+    {% else %}
+    <form method="post" action="{{ url_for('offboarding.open_case') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="person_id" value="{{ person.id }}">
+      <button type="submit" class="btn btn-outline-dark">Open offboarding case</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('people.reactivate', person_id=person.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline-success">Reactivate</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Email</dt><dd class="col-7">{{ person.email }}</dd>
+          <dt class="col-5">Status</dt><dd class="col-7">{{ status_badge(person.status) }}</dd>
+          <dt class="col-5">Departed</dt><dd class="col-7">{{ when(person.departed_at, now) }}</dd>
+          <dt class="col-5">Identities</dt><dd class="col-7">{{ nhis|length }}</dd>
+          <dt class="col-5">Login</dt><dd class="col-7">{% if person.user %}{{ person.user.username }} ({{ person.user.role|label }}){% else %}<span class="text-body-secondary">none</span>{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Identities owned <span class="badge text-bg-secondary">{{ nhis|length }}</span></div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">System</th><th scope="col">Status</th><th scope="col">Risk</th><th scope="col">Last used</th></tr></thead>
+          <tbody>
+          {% for nhi in nhis %}
+            <tr>
+              <td><a href="{{ url_for('inventory.detail', nhi_id=nhi.id) }}">{{ nhi.name }}</a></td>
+              <td>{{ nhi.type|label }}</td>
+              <td>{{ nhi.system.name }}</td>
+              <td>{{ status_badge(nhi.status) }}</td>
+              <td>{{ band_chip(nhi) }}</td>
+              <td>{{ when(nhi.last_used_at, now) }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="text-body-secondary">No identities are owned by this person.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card mt-3">
+  <div class="card-header">Offboarding cases <span class="badge text-bg-secondary">{{ cases|length }}</span></div>
+  {% if cases %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="person-cases">
+      <thead><tr><th scope="col">Case</th><th scope="col">Status</th><th scope="col">Opened</th><th scope="col">Closed</th></tr></thead>
+      <tbody>
+      {% for case in cases %}
+        <tr><td><a href="{{ url_for('offboarding.detail', case_id=case.id) }}">#{{ case.id }}</a></td><td>{{ status_badge(case.status) }}</td><td>{{ case.opened_at|isodate }}</td><td>{% if case.closed_at %}{{ case.closed_at|isodate }}{% else %}<span class="text-body-secondary">open</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">No offboarding case yet.{% if person.status == "departed" and current_user.role == "admin" %} Open one with the button above.{% endif %}</div>
+  {% endif %}
+</div>
+{{ audit_trail(trail, now) }}
+{% endblock %}

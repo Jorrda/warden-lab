@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Not found{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <p class="display-4 fw-semibold mb-1">404</p>
+  <h1 class="h4">Page not found</h1>
+  <p class="text-body-secondary">The address is wrong or the page has moved.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('dashboard.index') }}">Back to home</a>
+</div>
+{% endblock %}

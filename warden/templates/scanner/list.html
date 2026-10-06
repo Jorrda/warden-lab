@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Scan runs{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Scan runs</h1>
+  <span class="text-body-secondary" id="run-count" data-count="{{ count }}">{{ count }} {{ "run" if count == 1 else "runs" }}{% if selected %} of {{ total }}{% endif %}</span>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <p class="text-body-secondary">The scanner walks a directory for hardcoded secrets in three layers: signature patterns, an entropy check on generic assignments behind a placeholder allowlist, then a SHA-256 fingerprint and a masked preview. It stores the fingerprint and the preview, never the secret. When the directory holds <code>ground_truth.json</code>, recall and precision are computed against it.</p>
+    <form method="get" action="{{ url_for('scanner.list_runs') }}" class="row g-2 align-items-end" id="run-filter">
+      <div class="col-auto">
+        <label for="target-filter" class="form-label">Target</label>
+        <select id="target-filter" name="target" class="form-select">
+          <option value="">All</option>
+          {% for value in targets %}<option value="{{ value }}" {% if value == selected %}selected{% endif %}>{{ value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Filter</button></div>
+    </form>
+  </div>
+  {% if current_user.role == "admin" %}
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Run scan</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('scanner.run') }}" novalidate id="scan-form">
+          {{ form.hidden_tag() }}
+          {{ field(form.target, placeholder="sample_repo") }}
+          <p class="form-text">Relative to <code title="{{ base }}">{{ base_label }}</code>; a path outside it is refused.</p>
+          {{ form.submit(class_="btn btn-primary") }}
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+<div class="table-responsive">
+  <table class="table table-hover align-middle" id="run-list">
+    <thead>
+      <tr><th scope="col">Run</th><th scope="col">Target</th><th scope="col">Started by</th><th scope="col">Started</th><th scope="col" class="text-end">Files</th><th scope="col" class="text-end">Findings</th><th scope="col" class="text-end">Detected</th><th scope="col" class="text-end">Missed</th><th scope="col" class="text-end">False positives</th><th scope="col" class="text-end">Recall</th><th scope="col" class="text-end">Precision</th></tr>
+    </thead>
+    <tbody>
+    {% for run in runs %}
+      <tr data-run="{{ run.id }}" data-findings="{{ run.findings_count }}" data-recall="{{ run.recall if run.recall is not none else '' }}" data-precision="{{ run.precision if run.precision is not none else '' }}">
+        <td><a href="{{ url_for('scanner.detail', run_id=run.id) }}">#{{ run.id }}</a></td>
+        <td><code>{{ run.target_path }}</code></td>
+        <td>{{ run.starter.username }}</td>
+        <td><span title="{{ run.started_at.isoformat() }}">{{ run.started_at|isodate }}</span> <span class="text-body-secondary">({{ run.started_at|ago(now) }})</span></td>
+        <td class="text-end">{{ run.files_scanned }}</td>
+        <td class="text-end">{{ run.findings_count }}</td>
+        <td class="text-end">{% if run.true_positives is not none %}{{ run.true_positives }}{% else %}<span class="text-body-secondary">n/a</span>{% endif %}</td>
+        <td class="text-end">{% if run.missed is not none %}{{ run.missed }}{% else %}<span class="text-body-secondary">n/a</span>{% endif %}</td>
+        <td class="text-end">{% if run.false_positives is not none %}{{ run.false_positives }}{% else %}<span class="text-body-secondary">n/a</span>{% endif %}</td>
+        <td class="text-end">{{ percent(run.recall) }}</td>
+        <td class="text-end">{{ percent(run.precision) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="11" class="text-body-secondary">{% if selected %}No run matches this filter.{% else %}No scan has run yet.{% if current_user.role == "admin" %} Run one with the form above.{% endif %}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

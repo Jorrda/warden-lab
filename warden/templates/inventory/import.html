@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Import identities{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Import identities</h1>
+  <a class="btn btn-outline-secondary" href="{{ url_for('inventory.list_nhis') }}">Inventory</a>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Upload a CSV file</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('inventory.import_preview') }}" enctype="multipart/form-data" novalidate id="import-form">
+          {{ form.hidden_tag() }}
+          {{ field(form.file) }}
+          <p class="form-text">Up to {{ max_bytes // 1024 }} KiB and {{ max_rows }} rows. The preview shows what each row would do; nothing is written until you commit.</p>
+          {{ form.submit(class_="btn btn-primary") }}
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Template</div>
+      <div class="card-body">
+        <p><a class="btn btn-outline-primary btn-sm" href="{{ url_for('inventory.import_template') }}">Download the template</a> (a header row and one example row).</p>
+        <p class="mb-1">A row is matched to an existing identity by <code>name</code> and <code>system</code>: a match is updated, anything else is created. Rows are rejected, never coerced, on an unknown system, an unknown owner email, an invalid enum value, a bad date, a missing required cell on a new identity, or a changed type on an existing one. On an update a blank cell leaves the stored value as it is.</p>
+        <p class="mb-1">Enum values are the stored ones: type <code>service_account, api_key, oauth_grant, webhook, deploy_key, certificate, ci_token, ai_agent</code>; environment <code>prod, staging, dev</code>; privilege_level <code>read, write, admin</code>; storage_location <code>vault, config_file, env_var, source_code, chat_or_ticket, unknown</code>. Dates are <code>YYYY-MM-DD</code>. Lists (<code>events</code>, <code>san</code>, <code>tool_list</code>) are comma separated. No column carries a secret value.</p>
+        <p class="mb-0 small text-body-secondary">Columns: {% for column in columns %}<code>{{ column }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center"><span>Import batches</span> <span class="badge text-bg-secondary" id="batch-count" data-count="{{ count }}">{{ count }}</span></div>
+  {% if batches %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0" id="batches">
+      <thead><tr><th scope="col">Batch</th><th scope="col">File</th><th scope="col">Uploaded</th><th scope="col" class="text-end">Rows</th><th scope="col" class="text-end">Created</th><th scope="col" class="text-end">Updated</th><th scope="col" class="text-end">Rejected</th><th scope="col">Rejected rows</th></tr></thead>
+      <tbody>
+      {% for batch in batches %}
+        <tr data-batch="{{ batch.id }}" data-created="{{ batch.rows_created }}" data-updated="{{ batch.rows_updated }}" data-rejected="{{ batch.rows_rejected }}">
+          <td>#{{ batch.id }}</td>
+          <td>{{ batch.filename }}</td>
+          <td><span title="{{ batch.uploaded_at.isoformat() }}">{{ batch.uploaded_at|isodate }}</span> <span class="text-body-secondary">({{ batch.uploaded_at|ago(now) }})</span></td>
+          <td class="text-end">{{ batch.rows_total }}</td>
+          <td class="text-end">{{ batch.rows_created }}</td>
+          <td class="text-end">{{ batch.rows_updated }}</td>
+          <td class="text-end">{{ batch.rows_rejected }}</td>
+          <td class="small">
+            {% if batch.error_report %}
+            <details>
+              <summary>{{ batch.error_report|length }} {{ "row" if batch.error_report|length == 1 else "rows" }}</summary>
+              <ul class="mb-0">{% for item in batch.error_report %}<li>Row {{ item.row }} ({{ item.name }} on {{ item.system }}): {{ item.reason }}</li>{% endfor %}</ul>
+            </details>
+            {% else %}<span class="text-body-secondary">none</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-body-secondary">No import yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

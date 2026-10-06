@@ -1,0 +1,167 @@
+{
+  "generated_by": "scripts/gen_sample_repo.py",
+  "secrets": [
+    {
+      "file": ".env",
+      "line": 3,
+      "type": "aws_access_key_id"
+    },
+    {
+      "file": ".env",
+      "line": 4,
+      "type": "aws_secret_access_key"
+    },
+    {
+      "file": "app/auth.py",
+      "line": 6,
+      "type": "jwt"
+    },
+    {
+      "file": "app/notifications.py",
+      "line": 4,
+      "type": "slack_token"
+    },
+    {
+      "file": "app/payments.py",
+      "line": 4,
+      "type": "stripe_live_key"
+    },
+    {
+      "file": "app/reporting.py",
+      "line": 4,
+      "type": "database_uri"
+    },
+    {
+      "file": "bitbucket-pipelines.yml",
+      "line": 15,
+      "type": "bitbucket_app_password"
+    },
+    {
+      "file": "config/integrations.yaml",
+      "line": 3,
+      "type": "slack_token"
+    },
+    {
+      "file": "config/settings.py",
+      "line": 7,
+      "type": "generic_password"
+    },
+    {
+      "file": "config/settings.yaml",
+      "line": 6,
+      "type": "generic_api_key"
+    },
+    {
+      "file": "data/fixtures.json",
+      "line": 7,
+      "type": "generic_api_key"
+    },
+    {
+      "file": "docker-compose.yml",
+      "line": 7,
+      "type": "database_uri"
+    },
+    {
+      "file": "infra/main.tf",
+      "line": 7,
+      "type": "aws_access_key_id"
+    },
+    {
+      "file": "keys/deploy_key.pem",
+      "line": 1,
+      "type": "private_key_pem"
+    },
+    {
+      "file": "keys/tls_server.key",
+      "line": 1,
+      "type": "private_key_pem"
+    },
+    {
+      "file": "scripts/backup.sh",
+      "line": 3,
+      "type": "generic_password"
+    },
+    {
+      "file": "scripts/deploy.sh",
+      "line": 4,
+      "type": "github_token"
+    },
+    {
+      "file": "scripts/release.sh",
+      "line": 4,
+      "type": "github_token"
+    },
+    {
+      "file": "web/static/js/analytics.js",
+      "line": 8,
+      "type": "jwt"
+    },
+    {
+      "file": "web/static/js/app.js",
+      "line": 3,
+      "type": "google_api_key"
+    }
+  ],
+  "decoys": [
+    {
+      "file": "README.md",
+      "line": 10,
+      "reason": "placeholder <your-key>"
+    },
+    {
+      "file": "app/tests/conftest.py",
+      "line": 5,
+      "reason": "entropy below the threshold"
+    },
+    {
+      "file": "app/tests/test_payments.py",
+      "line": 6,
+      "reason": "test-mode key, no detector matches"
+    },
+    {
+      "file": "app/tests/test_utils.py",
+      "line": 5,
+      "reason": "entropy below the threshold"
+    },
+    {
+      "file": "config/app.json",
+      "line": 2,
+      "reason": "URI without credentials"
+    },
+    {
+      "file": "config/settings.py",
+      "line": 4,
+      "reason": "placeholder xxx"
+    },
+    {
+      "file": "config/settings.py",
+      "line": 8,
+      "reason": "placeholder changeme"
+    },
+    {
+      "file": "docs/setup.md",
+      "line": 8,
+      "reason": "placeholder example"
+    },
+    {
+      "file": "infra/variables.tf",
+      "line": 11,
+      "reason": "placeholder akiaexample"
+    },
+    {
+      "file": "keys/public.pem",
+      "line": 1,
+      "reason": "public key, not private"
+    },
+    {
+      "file": "scripts/rotate_keys.py",
+      "line": 3,
+      "reason": "placeholder example"
+    },
+    {
+      "file": "web/static/js/analytics.js",
+      "line": 3,
+      "reason": "one JWT segment, not a token"
+    }
+  ]
+}

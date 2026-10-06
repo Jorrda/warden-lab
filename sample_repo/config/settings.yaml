@@ -1,0 +1,8 @@
+portal:
+  name: FleetLine portal
+  timezone: Asia/Jerusalem
+maps:
+  provider: internal
+  api_key: "9f18b1fcb2f3f090111a1604bfda1193c185ca27"
+features:
+  driver_tracking: true

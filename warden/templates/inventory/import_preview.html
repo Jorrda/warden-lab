@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Import preview{% endblock %}
+{% block content %}
+{% set creates = plan.count("create") %}{% set updates = plan.count("update") %}{% set rejects = plan.count("reject") %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Import preview: {{ plan.filename }}</h1>
+  <span class="text-body-secondary" id="preview-count" data-create="{{ creates }}" data-update="{{ updates }}" data-reject="{{ rejects }}">{{ plan.rows|length }} {{ "row" if plan.rows|length == 1 else "rows" }}: {{ creates }} to create, {{ updates }} to update, {{ rejects }} rejected</span>
+</div>
+<form method="post" action="{{ url_for('inventory.import_commit') }}" id="commit-form" class="mb-3">
+  {{ form.hidden_tag() }}
+  {{ form.csv_text(hidden=True, readonly=True) }}
+  {% if creates + updates %}
+  <p class="mb-2">Committing writes the {{ creates }} new and {{ updates }} updated {{ "identity" if creates + updates == 1 else "identities" }}, scores each one and records the batch; the {{ rejects }} rejected {{ "row is" if rejects == 1 else "rows are" }} skipped and listed on the batch. The rows are validated again at commit time.</p>
+  {{ form.submit(class_="btn btn-primary") }}
+  {% elif plan.rows %}
+  <p class="mb-2">Nothing to commit: every row is rejected. Fix the reasons below and upload the file again.</p>
+  {% else %}
+  <p class="mb-2">Nothing to commit: the file has a header and no data rows. Add rows and upload it again.</p>
+  {% endif %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('inventory.import_nhis') }}">Cancel</a>
+</form>
+<div class="table-responsive">
+  <table class="table table-sm align-middle" id="preview">
+    <thead><tr><th scope="col" class="text-end">Row</th><th scope="col">Action</th><th scope="col">Name</th><th scope="col">System</th><th scope="col">Reason or columns</th></tr></thead>
+    <tbody>
+    {% for row in plan.rows %}
+      <tr data-row="{{ row.row_no }}" data-action="{{ row.action }}" class="{% if row.action == 'reject' %}table-danger{% elif row.action == 'update' %}table-info{% endif %}">
+        <td class="text-end">{{ row.row_no }}</td>
+        <td>{% if row.action == "create" %}<span class="badge text-bg-success">Create</span>{% elif row.action == "update" %}<span class="badge text-bg-info">Update</span>{% else %}<span class="badge text-bg-danger">Reject</span>{% endif %}</td>
+        <td>{{ row.name }}</td>
+        <td>{{ row.system }}</td>
+        <td class="small">{{ row.reason }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-body-secondary">The file has no data rows.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

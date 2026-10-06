@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import criticality_badge %}
+{% block title %}Systems{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Systems</h1>
+  <span class="text-body-secondary">{{ count }} {{ "system" if count == 1 else "systems" }}</span>
+</div>
+<form method="get" action="{{ url_for('systems.list_systems') }}" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label for="category" class="form-label">Category</label>
+    <select id="category" name="category" class="form-select">
+      <option value="">All</option>
+      {% for value in categories %}<option value="{{ value }}" {% if value == category %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <label for="criticality" class="form-label">Criticality</label>
+    <select id="criticality" name="criticality" class="form-select">
+      <option value="">All</option>
+      {% for value in criticalities %}<option value="{{ value }}" {% if value == criticality %}selected{% endif %}>{{ value|label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Filter</button></div>
+</form>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead><tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Criticality</th><th scope="col" class="text-end">Identities</th><th scope="col" class="text-end">Scopes</th></tr></thead>
+    <tbody>
+    {% for system, nhi_count, scope_count in rows %}
+      <tr>
+        <td><a href="{{ url_for('systems.detail', system_id=system.id) }}">{{ system.name }}</a></td>
+        <td>{{ system.category|label }}</td>
+        <td>{{ criticality_badge(system.criticality) }}</td>
+        <td class="text-end">{{ nhi_count }}</td>
+        <td class="text-end">{{ scope_count }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-body-secondary">No systems match this filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

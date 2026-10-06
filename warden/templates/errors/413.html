@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Upload too large{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <p class="display-4 fw-semibold mb-1">413</p>
+  <h1 class="h4">Upload too large</h1>
+  <p class="text-body-secondary">The request body is over the limit of {{ (limit // 1024) }} KiB. Split the file and import it in parts.</p>
+  <a class="btn btn-outline-primary" href="{{ url_for('dashboard.index') }}">Back to home</a>
+</div>
+{% endblock %}

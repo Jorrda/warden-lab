@@ -1,0 +1,10 @@
+services:
+  portal:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://warden_app:x8vLNv4aetjLn8eUn3@db-prod.fleetline.internal:5432/warden
+      REDIS_URL: redis://cache:6379/0
+  cache:
+    image: redis:7

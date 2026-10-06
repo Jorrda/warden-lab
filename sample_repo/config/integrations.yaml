@@ -1,0 +1,5 @@
+slack:
+  workspace: fleetline
+  slack_user_token: xoxp-88960074522-267584201301-iZrD05baXyo6v4SgAybhMD45
+crm:
+  base_url: https://crm.fleetline.example

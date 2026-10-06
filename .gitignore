@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# The database, created by "flask --app app init-db"
+instance/
+
+# The settings file is never committed; sample_repo/.env is the scanner's synthetic fixture
+.env
+!sample_repo/.env
